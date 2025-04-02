@@ -6,11 +6,7 @@ A Thai word guessing game that uses Ollama for word generation, featuring keyboa
 
 - Clean, responsive design
 - Thai keyboard for guessing letters
-- **NEW!** Physical keyboard input support
-- **NEW!** Limited tries with heart indicators
-- **NEW!** Win and lose conditions
-- **NEW!** Visual feedback for key presses
-- **NEW!** Expanded word dataset with authentic Thai words
+- Physical keyboard input support
 - Hints provided for each word
 - Integration with Ollama for AI-generated words and hints
 
