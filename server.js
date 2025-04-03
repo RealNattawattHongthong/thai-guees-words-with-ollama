@@ -20,8 +20,10 @@ app.post('/api/getWord', async (req, res) => {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          model: 'gemma3',
-          prompt: 'Generate a single Thai word and its hint for a word guessing game. The word should be 3-7 letters long. The hint should explain what the word means in Thai.\n\nRespond ONLY with valid JSON in the format {"word": "Thai word", "hint": "Hint in Thai"} without any explanation or additional text. Just the JSON object.',
+          model: 'phi4-mini',
+          //prompt: 'Generate a single Thai word and its hint for a word guessing game. The word should be 3-7 letters long. The hint should explain what the word means in Thai.\n\nRespond ONLY with valid JSON in the format {"word": "Thai word", "hint": "Hint in Thai"} without any explanation or additional text. Just the JSON object.',
+          prompt: 'สร้างคำภาษาไทยคำเดียวพร้อมคำใบ้สำหรับเกมทายคำและต้องไม่ซ้ำกัน คำควรมีความยาว 3-7 ตัวอักษร คำใบ้ควรอธิบายความหมายของคำในภาษาไทยตอบด้วย JSON ที่ถูกต้องในรูปแบบ {"word": "คำภาษาไทย", "hint": "คำใบ้เป็นภาษาไทย"} เท่านั้น โดยไม่มีคำอธิบายหรือข้อความเพิ่มเติม เพียงแค่ออบเจ็กต์ JSON',
+          //prompt: 'สร้างคำภาษาไทยคำเดียวพร้อมคำใบ้สำหรับเกมทายคำและต้องไม่ซ้ำกัน คำควรมีความยาว 3-7 ตัวอักษร คำใบ้ควรอธิบายความหมายของคำในภาษาไทยตอบด้วย JSON ที่ถูกต้องในรูปแบบ {"word": "คำภาษาไทย", "hint": "คำใบ้เป็นภาษาไทย"} เท่านั้น โดยไม่มีคำอธิบายหรือข้อความเพิ่มเติม เพียงแค่ออบเจ็กต์ JSON',
           stream: false
         }),
       });
