@@ -488,22 +488,9 @@ document.addEventListener('DOMContentLoaded', () => {
       // Check if the guess is incorrect
       if (!currentWord.includes(key)) {
         incorrectGuesses++;
-        
-        // Play error sound if available
-        try {
-          const errorSound = new Audio('/src/sounds/error.mp3');
-          errorSound.play().catch(e => console.error('Error playing sound:', e));
-        } catch (e) {
-          console.log('Sound not available');
-        }
+        // No sound for incorrect guess
       } else {
-        // Play success sound if available
-        try {
-          const successSound = new Audio('/src/sounds/success.mp3');
-          successSound.play().catch(e => console.error('Error playing sound:', e));
-        } catch (e) {
-          console.log('Sound not available');
-        }
+        // No sound for correct guess
       }
       
       // Show visual feedback for the pressed key

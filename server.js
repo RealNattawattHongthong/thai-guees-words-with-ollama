@@ -6,7 +6,13 @@ const port = 3000;
 
 // Serve static files
 app.use(express.static(path.join(__dirname, 'src')));
+app.use(express.static(path.join(__dirname, 'public')));
 app.use(express.json());
+
+// Redirect root to index.html
+app.get('/', (req, res) => {
+  res.sendFile(path.join(__dirname, 'src', 'index.html'));
+});
 
 // API endpoint to get words from Ollama
 app.post('/api/getWord', async (req, res) => {
@@ -22,7 +28,7 @@ app.post('/api/getWord', async (req, res) => {
         body: JSON.stringify({
           model: 'phi4-mini',
           //prompt: 'Generate a single Thai word and its hint for a word guessing game. The word should be 3-7 letters long. The hint should explain what the word means in Thai.\n\nRespond ONLY with valid JSON in the format {"word": "Thai word", "hint": "Hint in Thai"} without any explanation or additional text. Just the JSON object.',
-          prompt: 'สร้างคำภาษาไทยคำเดียวพร้อมคำใบ้สำหรับเกมทายคำและต้องไม่ซ้ำกัน คำควรมีความยาว 3-7 ตัวอักษร คำใบ้ควรอธิบายความหมายของคำในภาษาไทยตอบด้วย JSON ที่ถูกต้องในรูปแบบ {"word": "คำภาษาไทย", "hint": "คำใบ้เป็นภาษาไทย"} เท่านั้น โดยไม่มีคำอธิบายหรือข้อความเพิ่มเติม เพียงแค่ออบเจ็กต์ JSON',
+          prompt: 'สร้างคำภาษาไทยคำเดียวพร้อมคำใบ้สำหรับเกมทายคำศัพท์ภาษาไทย คำควรมีความยาว 3-7 ตัวอักษร และต้องเป็นคำที่มีความหมายชัดเจน คำใบ้ควรอธิบายความหมายของคำนั้นในภาษาไทย\n\nตอบเป็น JSON ด้วยรูปแบบดังนี้เท่านั้น ห้ามเพิ่มข้อความอื่นใด:\n\n{"word": "คำภาษาไทย", "hint": "คำอธิบายความหมายเป็นภาษาไทย"}\n\nใช้ชื่อฟิลด์เป็น "word" และ "hint" เท่านั้น ห้ามใช้ชื่ออื่น',
           //prompt: 'สร้างคำภาษาไทยคำเดียวพร้อมคำใบ้สำหรับเกมทายคำและต้องไม่ซ้ำกัน คำควรมีความยาว 3-7 ตัวอักษร คำใบ้ควรอธิบายความหมายของคำในภาษาไทยตอบด้วย JSON ที่ถูกต้องในรูปแบบ {"word": "คำภาษาไทย", "hint": "คำใบ้เป็นภาษาไทย"} เท่านั้น โดยไม่มีคำอธิบายหรือข้อความเพิ่มเติม เพียงแค่ออบเจ็กต์ JSON',
           stream: false
         }),
@@ -37,6 +43,7 @@ app.post('/api/getWord', async (req, res) => {
         data = JSON.parse(responseText);
       } catch (jsonParseError) {
         console.error("Failed to parse Ollama response as JSON:", responseText.substring(0, 500));
+        console.error("JSON parse error:", jsonParseError.message);
         throw new Error("Invalid JSON response from Ollama API");
       }
       
@@ -55,17 +62,39 @@ app.post('/api/getWord', async (req, res) => {
             // If it fails, it might be because the response contains actual JSON already
             console.log("Trying to extract JSON from response text...");
             
-            // Try to extract JSON from the text
-            const jsonMatch = data.response.match(/\{.*\}/s);
+            // Try to extract JSON from the text - using a more robust pattern
+            // This pattern looks for JSON objects even if there's extra text around them
+            const jsonMatch = data.response.match(/\{[\s\S]*?(?:\}(\s*\n\s*\})?|("\s*\})|(\s*\}))/g);
             
             if (jsonMatch) {
-              try {
-                parsedResponse = JSON.parse(jsonMatch[0]);
-              } catch (extractError) {
-                console.error("Failed to extract JSON from response:", jsonMatch[0]);
+              // Try each matched JSON object until one parses successfully
+              let parsedSuccessfully = false;
+              
+              for (const potentialJson of jsonMatch) {
+                try {
+                  // Clean the JSON string - remove any trailing backticks or markdown formatting
+                  const cleanedJson = potentialJson
+                    .replace(/^\s*```json\s*/, '')
+                    .replace(/\s*```\s*$/, '')
+                    .replace(/^[\s\n]*\{/, '{')
+                    .replace(/\}[\s\n]*$/, '}')
+                    .trim();
+                  
+                  parsedResponse = JSON.parse(cleanedJson);
+                  parsedSuccessfully = true;
+                  console.log("Successfully parsed JSON:", cleanedJson);
+                  break;
+                } catch (innerError) {
+                  console.log(`Failed to parse potential JSON match: ${potentialJson.substring(0, 100)}...`);
+                }
+              }
+              
+              if (!parsedSuccessfully) {
+                console.error("Failed to extract valid JSON from any matches:", jsonMatch);
                 throw new Error("Failed to extract JSON from Ollama response");
               }
             } else {
+              console.error("No JSON object found in Ollama response:", data.response);
               throw new Error("No JSON object found in Ollama response");
             }
           }
@@ -73,16 +102,26 @@ app.post('/api/getWord', async (req, res) => {
           // It's already an object
           parsedResponse = data.response;
         } else {
+          console.error("Unexpected response format from Ollama:", typeof data.response);
           throw new Error("Unexpected response format from Ollama");
         }
         
-        // Validate that we got a proper word and hint
-        if (parsedResponse.word && parsedResponse.hint && 
+        // Validate that we got a proper word and hint/definition
+        if (parsedResponse.word && 
             typeof parsedResponse.word === 'string' && 
-            typeof parsedResponse.hint === 'string') {
-          console.log("Using Ollama-generated word:", parsedResponse);
-          return res.json(parsedResponse);
+            ((parsedResponse.hint && typeof parsedResponse.hint === 'string') || 
+             (parsedResponse.definition && typeof parsedResponse.definition === 'string'))) {
+          
+          // Create a standardized response
+          const responseObj = {
+            word: parsedResponse.word,
+            hint: parsedResponse.hint || parsedResponse.definition // Use hint if available, otherwise use definition
+          };
+          
+          console.log("Using Ollama-generated word:", responseObj);
+          return res.json(responseObj);
         } else {
+          console.error("Invalid response format from Ollama:", parsedResponse);
           throw new Error("Invalid response format from Ollama");
         }
       } catch (parseError) {
@@ -90,7 +129,9 @@ app.post('/api/getWord', async (req, res) => {
         throw new Error("Could not parse Ollama response");
       }
     } catch (ollamaError) {
-      console.error("Error with Ollama, falling back to predefined words:", ollamaError);
+      console.error("Error with Ollama API call:", ollamaError.message);
+      console.error("Stack trace:", ollamaError.stack);
+      console.log("Falling back to predefined words");
       throw ollamaError; // Pass to fallback
     }
   } catch (error) {
